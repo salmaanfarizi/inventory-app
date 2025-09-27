@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inventory | Al-Hasa</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Inventory — Al-Hasa</h1>
+    <select id="routeSelect" class="route-select">
+      <option value="">Select Route…</option>
+      <option>Al-Hasa 1</option>
+      <option>Al-Hasa 2</option>
+      <option>Al-Hasa 3</option>
+      <option>Al-Hasa 4</option>
+      <option>Al-Hasa Wholesale</option>
+    </select>
+    <div id="statusBadge" class="badge">offline</div>
+  </header>
+
+  <div class="toolbar">
+    <button id="btnLoadPrev" class="ghost">Load Today From Sheet</button>
+    <div class="spacer"></div>
+    <button id="btnSaveInv">Save</button>
+    <button id="btnSubmitInv" class="primary">Submit</button>
+  </div>
+
+  <div id="invContainer" class="cards"></div>
+  <p class="info">Tip: values save per route and date (YYYY-MM-DD). Uses same Google Sheet as Cash app.</p>
+
+  <div id="toast"></div>
+  <script src="config.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

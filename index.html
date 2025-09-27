@@ -648,7 +648,24 @@ class StockVerificationApp {
     this.SYNC_INTERVAL = window.CONFIG.SYNC_INTERVAL || 30000;
     this.currentRoute = '';
     this.productCatalog = {};
+    this.queueKey = 'inventorySyncQueue';
+    this.pendingQueue = this.loadQueue();
+    this.toastTimer = null;
   }
+
+  // toast helpers
+  showToast(message, type='info', duration=2000){
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.className = `toast show ${type}`;
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(()=>{
+      toast.className = 'toast';
+      this.toastTimer = null;
+    }, duration);
+  }
+  toast(message, type){ this.showToast(message, type); }
 
   // simple GET/POST (no preflight)
   async post(action, payload){
@@ -665,6 +682,41 @@ class StockVerificationApp {
     return r.json();
   }
 
+  loadQueue(){
+    try {
+      return JSON.parse(localStorage.getItem(this.queueKey) || '[]');
+    } catch { return []; }
+  }
+  persistQueue(){
+    try { localStorage.setItem(this.queueKey, JSON.stringify(this.pendingQueue)); }
+    catch { /* ignore */ }
+  }
+  queueAction(action, payload){
+    this.pendingQueue.push({ action, payload });
+    this.persistQueue();
+  }
+  async flushQueue(){
+    if (!this.pendingQueue.length) return false;
+    let synced = false;
+    while (this.pendingQueue.length){
+      const job = this.pendingQueue[0];
+      try {
+        const res = await this.post(job.action, job.payload);
+        if (res.status === 'success'){
+          this.pendingQueue.shift();
+          synced = true;
+        } else {
+          throw new Error(res.data || 'Sync failed');
+        }
+      } catch (e){
+        this.persistQueue();
+        throw e;
+      }
+    }
+    this.persistQueue();
+    return synced;
+  }
+
   // init
   async init(){
     document.getElementById('dateDisplay').textContent =
@@ -676,8 +728,13 @@ class StockVerificationApp {
   async testConnection(){
     try {
       const res = await this.get({ action:'testConnection' });
-      this.updateSyncStatus(res.status==='success' ? 'connected' : 'disconnected');
-    } catch { this.updateSyncStatus('disconnected'); }
+      const ok = res.status==='success';
+      this.updateSyncStatus(ok ? 'connected' : 'disconnected');
+      return ok;
+    } catch {
+      this.updateSyncStatus('disconnected');
+      return false;
+    }
   }
 
   // backend data
@@ -725,23 +782,34 @@ class StockVerificationApp {
     return `${d.getFullYear()}-${m}-${da}`;
   }
   async loadRouteForToday(){
-    if (!this.currentRoute) return;
-    const res = await this.post('getInventoryData', { route:this.currentRoute, date:this.today });
-    if (res.status==='success' && res.data?.items){
-      res.data.items.forEach(row=>{
-        const code=row.code;
-        const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=(val??''); };
-        set(`physical-${code}`, row.physical);
-        set(`transfer-${code}`, row.transfer);
-        set(`system-input-${code}`, row.system);
-        set(`reimbursed-${code}`, row.reimburse);
-        const u = (id,val)=>{ const el=document.getElementById(id); if(el && val) el.value=val; };
-        u(`physical-unit-${code}`, row.physUnit);
-        u(`transfer-unit-${code}`, row.transUnit);
-        u(`system-unit-${code}`, row.sysUnit);
-      });
-      this.autoCalculateAll();
-    }
+    if (!this.currentRoute) return false;
+    try {
+      const res = await this.post('getInventoryData', { route:this.currentRoute, date:this.today });
+      if (res.status==='success' && res.data?.items){
+        res.data.items.forEach(row=>{
+          const code=row.code;
+          const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=(val??''); };
+          set(`physical-${code}`, row.physical);
+          set(`transfer-${code}`, row.transfer);
+          set(`system-input-${code}`, row.system);
+          set(`reimbursed-${code}`, row.reimburse);
+          const u = (id,val)=>{ const el=document.getElementById(id); if(el && val) el.value=val; };
+          u(`physical-unit-${code}`, row.physUnit);
+          u(`transfer-unit-${code}`, row.transUnit);
+          u(`system-unit-${code}`, row.sysUnit);
+        });
+        this.autoCalculateAll();
+        return true;
+      }
+    } catch { /* ignore */ }
+    return false;
+  }
+
+  async loadPreviousEntry(){
+    if (!this.currentRoute){ this.showToast('Select a route first','error'); return; }
+    const loaded = await this.loadRouteForToday();
+    if (loaded) this.showToast('Loaded today\'s data','success');
+    else this.showToast('No saved data found for today','warning');
   }
 
   // rendering (uses your existing markup structure)
@@ -841,6 +909,19 @@ class StockVerificationApp {
     if (/^carton$/i.test(unit) && item.carton) return val*item.carton;
     return val;
   }
+  resetItem(item){
+    const code=item.code;
+    const set=(id,val='')=>{ const el=document.getElementById(id); if(el) el.value=val; };
+    set(`physical-${code}`);
+    set(`transfer-${code}`);
+    set(`system-input-${code}`);
+    set(`reimbursed-${code}`);
+    const setUnit=(id)=>{ const el=document.getElementById(id); if(el && item.unit) el.value=item.unit; };
+    setUnit(`physical-unit-${code}`);
+    setUnit(`transfer-unit-${code}`);
+    setUnit(`system-unit-${code}`);
+    this.calculateItem(code);
+  }
   calculateItem(code){
     const it=this.findItem(code); if(!it) return;
     const p=+document.getElementById(`physical-${code}`).value||0;
@@ -889,10 +970,44 @@ class StockVerificationApp {
 
     this.updateSyncStatus('syncing');
     try{
-      const res = await this.post('saveInventoryData', { route:this.currentRoute, date:this.today, items });
+      const payload = { route:this.currentRoute, date:this.today, items };
+      const res = await this.post('saveInventoryData', payload);
       if (res.status==='success'){ this.updateSyncStatus('connected'); this.showToast(isSubmit?'Submitted!':'Saved!','success'); }
       else throw new Error(res.data||'Save failed');
-    } catch(e){ this.updateSyncStatus('disconnected'); this.showToast('Save failed: '+e.message,'error'); }
+    } catch(e){
+      this.updateSyncStatus('disconnected');
+      this.queueAction('saveInventoryData', { route:this.currentRoute, date:this.today, items });
+      this.showToast('Save failed. Queued for sync.','error');
+    }
+  }
+
+  async forceSync(){
+    this.updateSyncStatus('syncing');
+    const connected = await this.testConnection();
+    if (!connected){
+      if (this.pendingQueue.length){
+        this.showToast('Offline. Pending entries remain queued.','warning');
+      } else {
+        this.showToast('Offline. Nothing to sync.','warning');
+      }
+      return;
+    }
+    try {
+      const flushed = await this.flushQueue();
+      this.updateSyncStatus('connected');
+      if (flushed) this.showToast('Pending entries synced','success');
+      else this.showToast('Nothing queued to sync','info');
+    } catch(e){
+      this.updateSyncStatus('disconnected');
+      this.showToast('Sync failed: '+(e.message||'Unknown error'),'error');
+    }
+  }
+
+  clearAllData(){
+    Object.values(this.productCatalog).forEach(items=>{
+      items.forEach(item=>this.resetItem(item));
+    });
+    this.showToast('Cleared all inputs','info');
   }
 
   updateSyncStatus(state){

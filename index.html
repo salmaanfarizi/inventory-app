@@ -866,7 +866,7 @@ class StockVerificationApp {
 
   // Save to backend route tab
   async saveData(isSubmit){
-    if (!this.currentRoute){ this.toast('Select a route','error'); return; }
+    if (!this.currentRoute){ this.showToast('Select a route','error'); return; }
     const items=[];
     Object.entries(this.productCatalog).forEach(([category,products])=>{
       products.forEach(it=>{
@@ -918,6 +918,30 @@ class StockVerificationApp {
       ['success','error','info','warning'].forEach(cls=>toast.classList.remove(cls));
       this.toastTimer = null;
     }, duration);
+  }
+
+  showToast(message, type='info', duration=3000){
+    const toastEl = document.getElementById('toast');
+    if (!toastEl) return;
+
+    if (this.toastTimer){
+      clearTimeout(this.toastTimer);
+      this.toastTimer = null;
+    }
+
+    toastEl.textContent = message;
+    toastEl.className = 'toast';
+    if (type) toastEl.classList.add(type);
+    toastEl.classList.add('show');
+
+    this.toastTimer = setTimeout(()=>{
+      toastEl.classList.remove('show','success','error','info','warning');
+      this.toastTimer = null;
+    }, duration);
+  }
+
+  toast(...args){
+    this.showToast(...args);
   }
 
   updateSyncStatus(state){

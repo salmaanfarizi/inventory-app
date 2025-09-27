@@ -1,37 +1,908 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Inventory | Al-Hasa</title>
-  <link rel="stylesheet" href="styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stock Verification System - Enhanced</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        :root {
+            --primary: #4361ee;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --dark: #2d3436;
+            --light: #f5f7fa;
+            --border: #e0e6ed;
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            min-height: 100vh; 
+        }
+        
+        .container { 
+            max-width: 100%; 
+            background: var(--light); 
+            min-height: 100vh; 
+        }
+        
+        /* Header Section */
+        .header { 
+            background: white; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+            position: sticky; 
+            top: 0; 
+            z-index: 100; 
+        }
+        
+        .route-selection { padding: 15px; }
+        
+        .route-label { 
+            color: #6c757d; 
+            font-size: 12px; 
+            font-weight: 600; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            margin-bottom: 10px; 
+        }
+        
+        .routes-container { 
+            display: flex; 
+            gap: 10px; 
+            overflow-x: auto; 
+            padding-bottom: 5px; 
+        }
+        
+        .route-btn { 
+            flex: 0 0 auto; 
+            padding: 12px 24px; 
+            border: 2px solid var(--border); 
+            background: white; 
+            border-radius: 12px; 
+            font-size: 14px; 
+            font-weight: 600; 
+            color: #495057; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+            white-space: nowrap; 
+            outline: none; 
+        }
+        
+        .route-btn:hover { 
+            background: #f8f9fa; 
+            transform: translateY(-2px); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+        }
+        
+        .route-btn.active { 
+            background: var(--primary); 
+            color: white; 
+            border-color: var(--primary); 
+        }
+        
+        .route-btn.selected { 
+            background: var(--success); 
+            color: white; 
+            border-color: var(--success); 
+        }
+        
+        .date-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 15px; 
+            background: #f8f9fa; 
+            border-top: 1px solid var(--border); 
+        }
+        
+        .date-display { 
+            font-size: 16px; 
+            font-weight: 600; 
+            color: var(--dark); 
+        }
+        
+        .current-route { 
+            background: #e3f2fd; 
+            color: #1976d2; 
+            padding: 8px 16px; 
+            border-radius: 20px; 
+            font-size: 14px; 
+            font-weight: 600; 
+        }
+        
+        /* Action Buttons */
+        .action-buttons { 
+            display: flex; 
+            gap: 10px; 
+            padding: 15px; 
+            background: white; 
+            overflow-x: auto; 
+        }
+        
+        .action-btn { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 10px; 
+            font-size: 14px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+            white-space: nowrap; 
+            outline: none; 
+        }
+        
+        .action-btn.load { background: var(--warning); color: white; }
+        .action-btn.calculate { background: var(--primary); color: white; }
+        .action-btn.clear { background: var(--danger); color: white; }
+        .action-btn.sync { background: var(--info); color: white; }
+        
+        .action-btn:hover { 
+            transform: scale(1.05); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+        }
+        
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Main Content */
+        .main-content { padding: 15px; }
+        
+        /* Category Accordion */
+        .category-accordion { 
+            margin-bottom: 15px; 
+            border-radius: 15px; 
+            overflow: hidden; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08); 
+        }
+        
+        .category-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 18px 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+            user-select: none; 
+        }
+        
+        .category-header:hover { opacity: 0.95; }
+        
+        .category-title { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            font-size: 16px; 
+            font-weight: 600; 
+        }
+        
+        .category-icon { font-size: 20px; }
+        
+        .category-arrow { 
+            font-size: 20px; 
+            transition: transform 0.3s; 
+        }
+        
+        .category-accordion.expanded .category-arrow { 
+            transform: rotate(90deg); 
+        }
+        
+        .category-content { 
+            max-height: 0; 
+            overflow: hidden; 
+            transition: max-height 0.3s ease; 
+            background: white; 
+        }
+        
+        .category-accordion.expanded .category-content { 
+            max-height: 3000px; 
+        }
+        
+        /* Items */
+        .items-container { padding: 15px; }
+        
+        .item-box { 
+            background: #f8f9fa; 
+            border: 2px solid var(--border); 
+            border-radius: 12px; 
+            padding: 15px; 
+            margin-bottom: 15px; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+        }
+        
+        .item-box:hover { 
+            border-color: var(--primary); 
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.15); 
+        }
+        
+        .item-box.expanded { 
+            background: white; 
+            border-color: var(--primary); 
+        }
+        
+        .item-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 10px; 
+        }
+        
+        .item-info { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+        }
+        
+        .item-code { 
+            background: var(--primary); 
+            color: white; 
+            padding: 4px 10px; 
+            border-radius: 6px; 
+            font-weight: 600; 
+            font-size: 14px; 
+        }
+        
+        .item-name { 
+            font-size: 15px; 
+            font-weight: 600; 
+            color: var(--dark); 
+        }
+        
+        .item-price { 
+            background: #00b4d8; 
+            color: white; 
+            padding: 4px 10px; 
+            border-radius: 6px; 
+            font-size: 13px; 
+            font-weight: 600; 
+        }
+        
+        /* Quick Summary */
+        .item-summary { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 10px; 
+            padding: 10px 0; 
+            border-top: 1px solid var(--border); 
+            margin-top: 10px; 
+        }
+        
+        .summary-item { text-align: center; }
+        
+        .summary-label { 
+            font-size: 11px; 
+            color: #6c757d; 
+            margin-bottom: 2px; 
+        }
+        
+        .summary-value { 
+            font-size: 16px; 
+            font-weight: 700; 
+            color: var(--dark); 
+        }
+        
+        .summary-value.negative { color: var(--danger); }
+        .summary-value.positive { color: var(--success); }
+        
+        /* Details */
+        .item-details { 
+            display: none; 
+            margin-top: 15px; 
+            padding-top: 15px; 
+            border-top: 2px solid var(--border); 
+        }
+        
+        .item-box.expanded .item-details { 
+            display: block; 
+            animation: fadeIn 0.3s; 
+        }
+        
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(-10px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        
+        .input-row { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 15px; 
+            margin-bottom: 15px; 
+        }
+        
+        .input-row.single { grid-template-columns: 1fr; }
+        
+        .input-group { 
+            background: #f8f9fa; 
+            padding: 12px; 
+            border-radius: 10px; 
+            border: 2px solid transparent; 
+            transition: all 0.3s; 
+        }
+        
+        .input-group:focus-within { 
+            background: white; 
+            border-color: var(--primary); 
+            box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.1); 
+        }
+        
+        .input-label { 
+            font-size: 12px; 
+            color: #6c757d; 
+            font-weight: 600; 
+            margin-bottom: 5px; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+        }
+        
+        .input-with-unit { 
+            display: flex; 
+            gap: 8px; 
+            align-items: center; 
+        }
+        
+        .input-field { 
+            flex: 1; 
+            padding: 12px; 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            font-size: 18px; 
+            font-weight: 600; 
+            background: white; 
+            color: var(--dark); 
+            outline: none; 
+            appearance: none;
+            -webkit-appearance: none; 
+            text-align: center; 
+        }
+        
+        .input-field:focus { 
+            border-color: var(--primary); 
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1); 
+            transform: scale(1.05); 
+        }
+        
+        .unit-select { 
+            padding: 12px; 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            font-size: 14px; 
+            background: white; 
+            color: var(--dark); 
+            cursor: pointer; 
+            outline: none; 
+            min-width: 90px; 
+        }
+        
+        .unit-display { 
+            padding: 12px; 
+            background: #e0e6ed; 
+            border-radius: 8px; 
+            font-size: 14px; 
+            font-weight: 600; 
+            color: #6c757d; 
+            min-width: 90px; 
+            text-align: center; 
+        }
+        
+        /* Bottom calc row */
+        .calc-row { 
+            display: grid; 
+            grid-template-columns: 1fr; 
+            gap: 15px; 
+            margin-top: 15px; 
+            padding: 15px; 
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%); 
+            border-radius: 10px; 
+        }
+        
+        .calc-item { 
+            text-align: center; 
+            padding: 14px; 
+            background: white; 
+            border-radius: 8px; 
+        }
+        
+        .calc-label { 
+            font-size: 11px; 
+            color: #6c757d; 
+            margin-bottom: 5px; 
+            text-transform: uppercase; 
+            font-weight: 600; 
+        }
+        
+        .calc-value { 
+            font-size: 28px; 
+            font-weight: 800; 
+            color: var(--dark); 
+        }
+        
+        .calc-value.positive { color: var(--success); }
+        .calc-value.negative { color: var(--danger); }
+        
+        /* Bottom Actions */
+        .bottom-actions { 
+            position: sticky; 
+            bottom: 0; 
+            background: white; 
+            padding: 15px; 
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1); 
+            display: flex; 
+            gap: 10px; 
+        }
+        
+        .save-btn, .submit-btn { 
+            flex: 1; 
+            padding: 15px; 
+            border: none; 
+            border-radius: 12px; 
+            font-size: 16px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+            outline: none; 
+        }
+        
+        .save-btn { background: var(--success); color: white; }
+        .submit-btn { background: var(--primary); color: white; }
+        
+        .save-btn:hover, .submit-btn:hover { 
+            transform: scale(1.02); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+        }
+        
+        .save-btn:disabled, .submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Sync Status */
+        .sync-status { 
+            position: fixed; 
+            top: 20px; 
+            right: 20px; 
+            background: white; 
+            padding: 10px 15px; 
+            border-radius: 20px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            z-index: 200; 
+        }
+        
+        .sync-indicator { 
+            width: 8px; 
+            height: 8px; 
+            border-radius: 50%; 
+            animation: pulse 2s infinite; 
+        }
+        
+        .sync-indicator.connected { background: var(--success); }
+        .sync-indicator.disconnected { background: var(--danger); }
+        .sync-indicator.syncing { background: var(--warning); animation: spin 1s linear infinite; }
+        
+        @keyframes pulse { 
+            0%, 100% { opacity: 1; } 
+            50% { opacity: 0.5; } 
+        }
+        
+        @keyframes spin { 
+            100% { transform: rotate(360deg); } 
+        }
+        
+        .sync-text { 
+            font-size: 12px; 
+            font-weight: 600; 
+            color: #6c757d; 
+        }
+        
+        /* Toast */
+        .toast { 
+            position: fixed; 
+            bottom: 80px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            padding: 12px 24px; 
+            background: var(--dark); 
+            color: white; 
+            border-radius: 25px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+            display: none; 
+            animation: slideUp 0.3s; 
+            z-index: 1000; 
+            font-size: 14px; 
+            font-weight: 500; 
+        }
+        
+        .toast.show { display: block; }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); }
+        .toast.warning { background: var(--warning); }
+        
+        @keyframes slideUp { 
+            from { transform: translate(-50%, 100px); opacity: 0; } 
+            to { transform: translate(-50%, 0); opacity: 1; } 
+        }
+        
+        /* Mobile */
+        @media (max-width: 768px) {
+            .input-row { grid-template-columns: 1fr; }
+            .item-summary { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        /* Loading */
+        .loading { 
+            display: none; 
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            z-index: 1000; 
+        }
+        
+        .loading.show { display: block; }
+        
+        .spinner { 
+            width: 50px; 
+            height: 50px; 
+            border: 4px solid #f3f3f3; 
+            border-top: 4px solid var(--primary); 
+            border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+        }
+        
+        /* Error Message */
+        .error-message {
+            background: #fee2e2;
+            border: 1px solid var(--danger);
+            color: #991b1b;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 15px;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+    </style>
+   <!-- config.js -->
+<script>
+window.CONFIG = {
+  GOOGLE_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbwxddHbw-oIgjEJ1pw23HXZieVycmqTgsLKJW2QrzXedAdTmuCPL_7DQUEYA_Mdcb81CQ/exec",
+  SYNC_INTERVAL: 30000
+};
+</script>
 </head>
 <body>
-  <header class="app-header">
-    <h1>Inventory — Al-Hasa</h1>
-    <select id="routeSelect" class="route-select">
-      <option value="">Select Route…</option>
-      <option>Al-Hasa 1</option>
-      <option>Al-Hasa 2</option>
-      <option>Al-Hasa 3</option>
-      <option>Al-Hasa 4</option>
-      <option>Al-Hasa Wholesale</option>
-    </select>
-    <div id="statusBadge" class="badge">offline</div>
-  </header>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="route-selection">
+                <div class="route-label">SELECT SALES ROUTE</div>
+                <div class="routes-container"><button class="route-btn" onclick="app.selectRoute('Al-Hasa 1', this)">Al-Hasa 1</button>
+<button class="route-btn" onclick="app.selectRoute('Al-Hasa 2', this)">Al-Hasa 2</button>
+<button class="route-btn" onclick="app.selectRoute('Al-Hasa 3', this)">Al-Hasa 3</button>
+<button class="route-btn" onclick="app.selectRoute('Al-Hasa 4', this)">Al-Hasa 4</button>
+<button class="route-btn" onclick="app.selectRoute('Al-Hasa Wholesale', this)">Wholesale</button>
 
-  <div class="toolbar">
-    <button id="btnLoadPrev" class="ghost">Load Today From Sheet</button>
-    <div class="spacer"></div>
-    <button id="btnSaveInv">Save</button>
-    <button id="btnSubmitInv" class="primary">Submit</button>
-  </div>
+                </div>
+            </div>
+            <div class="date-header">
+                <div class="date-display" id="dateDisplay"></div>
+                <div class="current-route" id="currentRouteDisplay">Route: None</div>
+            </div>
+        </div>
 
-  <div id="invContainer" class="cards"></div>
-  <p class="info">Tip: values save per route and date (YYYY-MM-DD). Uses same Google Sheet as Cash app.</p>
+        <!-- Error Message -->
+        <div class="error-message" id="errorMessage"></div>
 
-  <div id="toast"></div>
-  <script src="config.js"></script>
-  <script type="module" src="main.js"></script>
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="action-btn load" onclick="app.loadPreviousEntry()">📋 Load Previous</button>
+            <button class="action-btn calculate" onclick="app.autoCalculateAll()">⚡ Calculate All</button>
+            <button class="action-btn sync" onclick="app.forceSync()">🔄 Force Sync</button>
+            <button class="action-btn clear" onclick="app.clearAllData()">🗑️ Clear All</button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content" id="mainContent"></div>
+
+        <!-- Bottom Actions -->
+        <div class="bottom-actions">
+            <button class="save-btn" id="saveBtn" onclick="app.saveData(false)">💾 Save to Sheets</button>
+            <button class="submit-btn" id="submitBtn" onclick="app.saveData(true)">✅ Submit & Lock</button>
+        </div>
+    </div>
+
+    <!-- Sync Status -->
+    <div class="sync-status">
+        <div class="sync-indicator disconnected" id="syncIndicator"></div>
+        <span class="sync-text" id="syncText">Connecting...</span>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Loading Spinner -->
+    <div class="loading" id="loading"><div class="spinner"></div></div>
+
+    <script>
+class StockVerificationApp {
+  constructor(){
+    this.API = window.CONFIG.GOOGLE_SCRIPT_URL;
+    this.SYNC_INTERVAL = window.CONFIG.SYNC_INTERVAL || 30000;
+    this.currentRoute = '';
+    this.productCatalog = {};
+  }
+
+  // simple GET/POST (no preflight)
+  async post(action, payload){
+    const r = await fetch(this.API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, ...payload })
+    });
+    return r.json();
+  }
+  async get(params){
+    const qs = new URLSearchParams(params).toString();
+    const r = await fetch(`${this.API}?${qs}`, { method: 'GET' });
+    return r.json();
+  }
+
+  // init
+  async init(){
+    document.getElementById('dateDisplay').textContent =
+      new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'});
+    await this.testConnection();
+    await this.loadCatalog();
+    this.renderCategories();
+  }
+  async testConnection(){
+    try {
+      const res = await this.get({ action:'testConnection' });
+      this.updateSyncStatus(res.status==='success' ? 'connected' : 'disconnected');
+    } catch { this.updateSyncStatus('disconnected'); }
+  }
+
+  // backend data
+  async loadCatalog(){
+    try{
+      const res = await this.get({ action:'getCatalog' });
+      this.productCatalog = (res.status==='success' && res.data) ? res.data : this.defaultCatalog();
+    } catch { this.productCatalog = this.defaultCatalog(); }
+  }
+  defaultCatalog(){ return {
+    'Sunflower Seeds': [
+      {code:'4402',name:'200g',unit:'Bag',price:58,bundle:5},
+      {code:'4401',name:'100g',unit:'Bag',price:34,bundle:5},
+      {code:'1129',name:'25g', unit:'Bag',price:16,bundle:6},
+      {code:'1116',name:'800g',unit:'Bag',price:17,carton:12},
+      {code:'1145',name:'130g',unit:'Box',price:54,carton:6},
+      {code:'1126',name:'10KG',unit:'Sack',price:160}
+    ],
+    'Pumpkin Seeds': [
+      {code:'8001',name:'15g', unit:'Box',price:16,carton:6},
+      {code:'8002',name:'110g',unit:'Box',price:54,carton:6},
+      {code:'1142',name:'10KG',unit:'Sack',price:230}
+    ],
+    'Melon Seeds': [
+      {code:'9001',name:'15g', unit:'Box',price:16,carton:6},
+      {code:'9002',name:'110g',unit:'Box',price:54,carton:6}
+    ],
+    'Popcorn': [
+      {code:'1701',name:'Cheese', unit:'Bag',price:5,carton:8},
+      {code:'1702',name:'Butter', unit:'Bag',price:5,carton:8},
+      {code:'1703',name:'Lightly Salted', unit:'Bag',price:5,carton:8}
+    ]
+  };}
+
+  // UI hooks
+  selectRoute(route, btn){
+    this.currentRoute = route;
+    document.querySelectorAll('.route-btn').forEach(b=>b.classList.remove('selected'));
+    btn?.classList.add('selected');
+    document.getElementById('currentRouteDisplay').textContent = `Route: ${route}`;
+    this.loadRouteForToday();
+  }
+  get today(){
+    const d=new Date(); const m=String(d.getMonth()+1).padStart(2,'0'); const da=String(d.getDate()).padStart(2,'0');
+    return `${d.getFullYear()}-${m}-${da}`;
+  }
+  async loadRouteForToday(){
+    if (!this.currentRoute) return;
+    const res = await this.post('getInventoryData', { route:this.currentRoute, date:this.today });
+    if (res.status==='success' && res.data?.items){
+      res.data.items.forEach(row=>{
+        const code=row.code;
+        const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=(val??''); };
+        set(`physical-${code}`, row.physical);
+        set(`transfer-${code}`, row.transfer);
+        set(`system-input-${code}`, row.system);
+        set(`reimbursed-${code}`, row.reimburse);
+        const u = (id,val)=>{ const el=document.getElementById(id); if(el && val) el.value=val; };
+        u(`physical-unit-${code}`, row.physUnit);
+        u(`transfer-unit-${code}`, row.transUnit);
+        u(`system-unit-${code}`, row.sysUnit);
+      });
+      this.autoCalculateAll();
+    }
+  }
+
+  // rendering (uses your existing markup structure)
+  renderCategories(){
+    const container = document.getElementById('mainContent');
+    container.innerHTML='';
+    Object.entries(this.productCatalog).forEach(([cat,items])=>{
+      const div=document.createElement('div');
+      div.className='category-accordion';
+      div.innerHTML = `
+        <div class="category-header" onclick="app.toggleCategory('${cat}', this)">
+          <div class="category-title"><span class="category-icon">${this.icon(cat)}</span><span>${cat.toUpperCase()}</span></div>
+          <span class="category-arrow">▶</span>
+        </div>
+        <div class="category-content"><div class="items-container">
+          ${items.map(i=>this.itemBox(cat,i)).join('')}
+        </div></div>`;
+      container.appendChild(div);
+    });
+  }
+  icon(cat){ return ({'Sunflower Seeds':'🌻','Pumpkin Seeds':'🎃','Melon Seeds':'🍉','Popcorn':'🍿'})[cat]||'📦'; }
+  unitOptions(item){
+    let o = `<option value="${item.unit}">${item.unit}</option>`;
+    if (item.bundle) o += `<option value="Bundle">bundle (${item.bundle})</option>`;
+    if (item.carton) o += `<option value="Carton">carton (${item.carton})</option>`;
+    return o;
+  }
+  itemBox(category,item){
+    return `
+    <div class="item-box" id="item-${item.code}">
+      <div onclick="app.toggleItem('${category}','${item.code}')">
+        <div class="item-header">
+          <div class="item-info"><span class="item-code">${item.code}</span><span class="item-name">${item.name}</span></div>
+          <span class="item-price">SAR ${item.price}</span>
+        </div>
+        <div class="item-summary">
+          <div class="summary-item"><div class="summary-label">Physical</div><div class="summary-value" id="summary-physical-${item.code}">0</div></div>
+          <div class="summary-item"><div class="summary-label">Transfer</div><div class="summary-value" id="summary-transfer-${item.code}">0</div></div>
+          <div class="summary-item"><div class="summary-label">System</div><div class="summary-value" id="summary-system-${item.code}">0</div></div>
+          <div class="summary-item"><div class="summary-label">Diff</div><div class="summary-value" id="summary-diff-${item.code}">0</div></div>
+        </div>
+      </div>
+      <div class="item-details">
+        <div class="input-row">
+          <div class="input-group">
+            <div class="input-label">Physical Stock</div>
+            <div class="input-with-unit">
+              <input type="number" class="input-field" id="physical-${item.code}" placeholder="0" onchange="app.calculateItem('${item.code}')" onfocus="this.select()">
+              <select class="unit-select" id="physical-unit-${item.code}" onchange="app.calculateItem('${item.code}')">${this.unitOptions(item)}</select>
+            </div>
+          </div>
+          <div class="input-group">
+            <div class="input-label">Stock Transfer</div>
+            <div class="input-with-unit">
+              <input type="number" class="input-field" id="transfer-${item.code}" placeholder="0" onchange="app.calculateItem('${item.code}')" onfocus="this.select()">
+              <select class="unit-select" id="transfer-unit-${item.code}" onchange="app.calculateItem('${item.code}')">${this.unitOptions(item)}</select>
+            </div>
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="input-group">
+            <div class="input-label">System Stock</div>
+            <div class="input-with-unit">
+              <input type="number" class="input-field" id="system-input-${item.code}" placeholder="0" onchange="app.calculateItem('${item.code}')" onfocus="this.select()">
+              <select class="unit-select" id="system-unit-${item.code}" onchange="app.calculateItem('${item.code}')">${this.unitOptions(item)}</select>
+            </div>
+          </div>
+          <div class="input-group">
+            <div class="input-label">Pieces Reimbursed</div>
+            <div class="input-with-unit">
+              <input type="number" class="input-field" id="reimbursed-${item.code}" placeholder="0" oninput="/* store if needed */">
+              <div class="unit-display">pieces</div>
+            </div>
+          </div>
+        </div>
+        <div class="calc-row"><div class="calc-item"><div class="calc-label">Difference</div><div class="calc-value" id="diff-${item.code}">0</div></div></div>
+      </div>
+    </div>`;
+  }
+
+  toggleCategory(category, el){
+    el.parentElement.classList.toggle('expanded');
+  }
+  toggleItem(category, code){
+    document.getElementById(`item-${code}`).classList.toggle('expanded');
+  }
+
+  findItem(code){
+    for (const arr of Object.values(this.productCatalog)) {
+      const it=arr.find(i=>i.code===code); if (it) return it;
+    }
+    return null;
+  }
+  toBase(val, unit, item){
+    if (!item) return val;
+    if (/^bundle$/i.test(unit) && item.bundle) return val*item.bundle;
+    if (/^carton$/i.test(unit) && item.carton) return val*item.carton;
+    return val;
+  }
+  calculateItem(code){
+    const it=this.findItem(code); if(!it) return;
+    const p=+document.getElementById(`physical-${code}`).value||0;
+    const pu=document.getElementById(`physical-unit-${code}`).value;
+    const t=+document.getElementById(`transfer-${code}`).value||0;
+    const tu=document.getElementById(`transfer-unit-${code}`).value;
+    const s=+document.getElementById(`system-input-${code}`).value||0;
+    const su=document.getElementById(`system-unit-${code}`).value;
+    const pb=this.toBase(p,pu,it), tb=this.toBase(t,tu,it), sb=this.toBase(s,su,it);
+    const diff=sb-pb;
+    document.getElementById(`diff-${code}`).textContent = diff.toFixed(0);
+    document.getElementById(`summary-physical-${code}`).textContent = pb.toFixed(0);
+    document.getElementById(`summary-transfer-${code}`).textContent = tb.toFixed(0);
+    document.getElementById(`summary-system-${code}`).textContent   = sb.toFixed(0);
+    document.getElementById(`summary-diff-${code}`).textContent     = diff.toFixed(0);
+  }
+  autoCalculateAll(){
+    Object.values(this.productCatalog).forEach(items=>{
+      items.forEach(i=>{ if (document.getElementById(`physical-${i.code}`)) this.calculateItem(i.code); });
+    });
+  }
+
+  // Save to backend route tab
+  async saveData(isSubmit){
+    if (!this.currentRoute){ this.toast('Select a route','error'); return; }
+    const items=[];
+    Object.entries(this.productCatalog).forEach(([category,products])=>{
+      products.forEach(it=>{
+        const p=+document.getElementById(`physical-${it.code}`)?.value||0;
+        const t=+document.getElementById(`transfer-${it.code}`)?.value||0;
+        const s=+document.getElementById(`system-input-${it.code}`)?.value||0;
+        const r=+document.getElementById(`reimbursed-${it.code}`)?.value||0;
+        if (p||t||s||r) {
+          items.push({
+            category,
+            code: it.code, name: it.name,
+            physical: p,  physUnit: document.getElementById(`physical-unit-${it.code}`).value,
+            transfer: t,  transUnit: document.getElementById(`transfer-unit-${it.code}`).value,
+            system:   s,  sysUnit:   document.getElementById(`system-unit-${it.code}`).value,
+            difference: (s - p), reimburse: r, reimbUnit: 'Pieces'
+          });
+        }
+      });
+    });
+    if (!items.length){ this.showToast('Nothing to save','warning'); return; }
+
+    this.updateSyncStatus('syncing');
+    try{
+      const res = await this.post('saveInventoryData', { route:this.currentRoute, date:this.today, items });
+      if (res.status==='success'){ this.updateSyncStatus('connected'); this.showToast(isSubmit?'Submitted!':'Saved!','success'); }
+      else throw new Error(res.data||'Save failed');
+    } catch(e){ this.updateSyncStatus('disconnected'); this.showToast('Save failed: '+e.message,'error'); }
+  }
+
+  updateSyncStatus(state){
+    const i=document.getElementById('syncIndicator'), t=document.getElementById('syncText');
+    i.className=`sync-indicator ${state}`;
+    t.textContent = state==='connected'?'Connected':state==='syncing'?'Syncing...':'Offline';
+  }
+}
+const app = new StockVerificationApp();
+window.addEventListener('DOMContentLoaded', ()=>app.init());
+</script>
 </body>
 </html>

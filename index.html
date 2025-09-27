@@ -648,6 +648,8 @@ class StockVerificationApp {
     this.SYNC_INTERVAL = window.CONFIG.SYNC_INTERVAL || 30000;
     this.currentRoute = '';
     this.productCatalog = {};
+    this.queueKey = 'invQueue';
+    this.toastTimer = null;
   }
 
   // simple GET/POST (no preflight)
@@ -725,23 +727,97 @@ class StockVerificationApp {
     return `${d.getFullYear()}-${m}-${da}`;
   }
   async loadRouteForToday(){
-    if (!this.currentRoute) return;
-    const res = await this.post('getInventoryData', { route:this.currentRoute, date:this.today });
-    if (res.status==='success' && res.data?.items){
-      res.data.items.forEach(row=>{
-        const code=row.code;
-        const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=(val??''); };
-        set(`physical-${code}`, row.physical);
-        set(`transfer-${code}`, row.transfer);
-        set(`system-input-${code}`, row.system);
-        set(`reimbursed-${code}`, row.reimburse);
-        const u = (id,val)=>{ const el=document.getElementById(id); if(el && val) el.value=val; };
-        u(`physical-unit-${code}`, row.physUnit);
-        u(`transfer-unit-${code}`, row.transUnit);
-        u(`system-unit-${code}`, row.sysUnit);
-      });
-      this.autoCalculateAll();
+    if (!this.currentRoute) return false;
+    try {
+      const res = await this.post('getInventoryData', { route:this.currentRoute, date:this.today });
+      if (res.status==='success' && res.data?.items){
+        res.data.items.forEach(row=>{
+          const code=row.code;
+          const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=(val??''); };
+          set(`physical-${code}`, row.physical);
+          set(`transfer-${code}`, row.transfer);
+          set(`system-input-${code}`, row.system);
+          set(`reimbursed-${code}`, row.reimburse);
+          const u = (id,val)=>{ const el=document.getElementById(id); if(el && val!=null) el.value=val; };
+          u(`physical-unit-${code}`, row.physUnit);
+          u(`transfer-unit-${code}`, row.transUnit);
+          u(`system-unit-${code}`, row.sysUnit);
+        });
+        this.autoCalculateAll();
+        return true;
+      }
+    } catch(e){
+      console.error('Failed to load route data', e);
     }
+    return false;
+  }
+
+  async loadPreviousEntry(){
+    if (!this.currentRoute){
+      this.showToast('Select a route first','warning');
+      return;
+    }
+    const loaded = await this.loadRouteForToday();
+    if (loaded) this.showToast('Loaded today from Sheet','success');
+  }
+
+  async forceSync(){
+    await this.testConnection();
+    const flushed = await this.flushQueue();
+    if (!flushed) this.showToast('Sync check triggered','info');
+  }
+
+  async flushQueue(){
+    if (typeof localStorage === 'undefined') return false;
+    let queue;
+    try { queue = JSON.parse(localStorage.getItem(this.queueKey) || '[]') || []; }
+    catch { queue = []; }
+    if (!queue.length) return false;
+
+    let synced = false;
+    while(queue.length){
+      const job = queue[0];
+      try {
+        const res = await this.post(job.action, job.payload ?? job.body ?? {});
+        if (res.status==='success'){ queue.shift(); synced = true; }
+        else break;
+      } catch(e){
+        console.error('Queue flush failed', e);
+        break;
+      }
+    }
+    localStorage.setItem(this.queueKey, JSON.stringify(queue));
+    if (synced) this.showToast('Synced pending data','success');
+    return synced;
+  }
+
+  clearAllData(){
+    Object.values(this.productCatalog).forEach(items=>{
+      items.forEach(item=>{
+        const ids=[
+          `physical-${item.code}`,
+          `transfer-${item.code}`,
+          `system-input-${item.code}`,
+          `reimbursed-${item.code}`
+        ];
+        ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+        const unitIds=[
+          `physical-unit-${item.code}`,
+          `transfer-unit-${item.code}`,
+          `system-unit-${item.code}`
+        ];
+        unitIds.forEach(id=>{ const el=document.getElementById(id); if(el && item.unit) el.value=item.unit; });
+        ['summary-physical-','summary-transfer-','summary-system-','summary-diff-'].forEach(prefix=>{
+          const el=document.getElementById(`${prefix}${item.code}`);
+          if (el) el.textContent='0';
+        });
+        const diffEl=document.getElementById(`diff-${item.code}`);
+        if (diffEl) diffEl.textContent='0';
+      });
+    });
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(this.queueKey);
+    this.autoCalculateAll();
+    this.showToast('Cleared local inputs','warning');
   }
 
   // rendering (uses your existing markup structure)
@@ -894,6 +970,18 @@ class StockVerificationApp {
       else throw new Error(res.data||'Save failed');
     } catch(e){ this.updateSyncStatus('disconnected'); this.showToast('Save failed: '+e.message,'error'); }
   }
+
+  showToast(message, type='info'){
+    const toast=document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent=message;
+    toast.className=`toast show ${type}`;
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(()=>{
+      toast.className='toast';
+    }, 2000);
+  }
+  toast(message,type){ this.showToast(message,type); }
 
   updateSyncStatus(state){
     const i=document.getElementById('syncIndicator'), t=document.getElementById('syncText');
